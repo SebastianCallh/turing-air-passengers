@@ -1,7 +1,7 @@
 using Turing, Distributions, Plots, StatsPlots, DataFrames, CSV, Dates
 
 function save_fig(fig, filename)
-    savefig(fig, "plots/$filename")    
+    savefig(fig, "plots/$filename")
 end
 
 # Data loading 
@@ -102,17 +102,16 @@ linear_posterior_combined_plt = plot(
 )
 save_fig(linear_posterior_combined_plt, "linear_posterior_predictive.png")
 
-function seasonality(x, order, period_length)
+function seasonality(x, freqs, period_length)
     period = x ./ period_length
-    sines = Dict("sin$o" => sin.(2*π*o*period) for o in 1:order)
-    coses = Dict("cos$o" => cos.(2*π*o*period) for o in 1:order)
-    features = DataFrame(merge(sines, coses))
-    Matrix(features)
+    sines = mapreduce(o -> sin.(2*π*o*period), hcat, 1:freqs)
+    coses = mapreduce(o -> cos.(2*π*o*period), hcat, 1:freqs)
+    hcat(sines, coses)
 end
 
-order = 10
+freqs = 10
 period = 365.25 # account for leap years
-s = seasonality(dayofyear.(df.Month), order, period)
+s = seasonality(dayofyear.(df.Month), freqs, period)
 
 @model function linear_seasonality(t, s, y) 
     α ~ Normal(0, .5)
@@ -164,6 +163,7 @@ function plot_linear_seasonality(df, gq, ymax)
     plot(trend_plt, seasonality_plt, layout=(2, 1))
 end
 
+
 linear_seasonality_prior_samples = sample(linear_seasonality(t, s, missing), Prior(), 100)
 linear_seasonality_prior_plt = plot_samples(
     df.Month, linear_seasonality_prior_samples,
@@ -191,7 +191,7 @@ save_fig(linear_seasonality_prior_combined_plt, "linear_seasonality_prior_predic
 
 
 ## Posterior predictive
-linear_seasonal_posterior_chain = sample(linear_seasonality(t, s, y), NUTS(), 1000)
+linear_seasonal_posterior_chain = sample(linear_seasonality(t, s, y), NUTS(), 2000)
 linear_seasonal_posterior_samples = predict(linear_seasonality(t, s, missing), linear_seasonal_posterior_chain)
 linear_seasonal_posterior_plt = plot_samples(
     df.Month, linear_seasonal_posterior_samples, ymax,
@@ -216,10 +216,42 @@ linear_seasonality_posterior_combined_plt = plot(
 save_fig(linear_seasonality_posterior_combined_plt, "linear_seasonality_posterior_predictive.png")
 
 
+βₛ = group(linear_seasonal_posterior_chain, :βₛ).value
+βsin = βₛ[:,begin:freqs,:]
+βcos = βₛ[:,freqs+1:end,:]
+labels = reshape(["freq = $i" for i in 1:freqs], 1,:)
+colors = collect(1:freqs)'
+style = reshape([i <= 10 ? :solid : :dash for i in 1:length(labels)], 1,:)
+sin_features_plt = density(
+    βsin[:,:,1],
+    title="Sin features posterior",
+    label=labels,
+    ylabel="Density",
+    xlabel="Weight",
+    color=colors,
+    linestyle=style
+)
+cos_features_plt = density(
+    βcos[:,:,1],
+    title="Cos features posterior",
+    ylabel="Density",
+    xlabel="Weight",
+    label=nothing,
+    color=colors,
+    linestyle=style
+)
+seasonal_features_plt= plot(
+    sin_features_plt,
+    cos_features_plt,
+    layout=(2,1),
+    size=(800, 600)
+)
+save_fig(seasonal_features_plt, "seasonal_features_posterior.png")
+
 extended_months = vcat(df.Month, df.Month .- Year(minimum(df.Month)) .+ Year(maximum(df.Month)) .+ Month(maximum(df.Month)))
 tmax = 12*year(maximum(df.Month)) + month(maximum(df.Month))
 t̃ = prepare_t(extended_months, tmax)
-s̃ = seasonality(dayofyear.(extended_months), order, period)
+s̃ = seasonality(dayofyear.(extended_months), freqs, period)
 
 linear_seasonal_posterior_extended_samples = predict(
     linear_seasonality(t̃, s̃, missing),
