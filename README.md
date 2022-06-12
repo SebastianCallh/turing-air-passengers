@@ -11,3 +11,6 @@ where $\alpha$ is the intercept, $\beta$ the trend over time $t$ and $s$ fourier
 ## Reproducing the results
 Download [the data](https://www.kaggle.com/datasets/rakannimer/air-passengers) and unzip the csv into [data](./data).
 Then `cd` to the repo, run `julia --project` to start the Julai REPL. Hit `]` to enter the package manager, run `instantiate` to fetch the necessary dependencies and finally `include("main.jl")` to fit the model and produce the plots.
+
+## Model fit
+![model fit](plots/linear_seasonality_posterior_predictive.png)
