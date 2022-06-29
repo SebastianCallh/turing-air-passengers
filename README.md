@@ -6,7 +6,8 @@ The model is a standard linear regression model with a multiplicative seasonal c
 
 $$f(t) = (\alpha + \beta t)(1 + s)$$
 
-where $\alpha$ is the intercept, $\beta$ the trend over time $t$ and $s$ fourier features capturing seasonality.
+where $\alpha$ is the intercept,
+$\beta$ the trend over time $t$ and $s$ fourier features capturing seasonality.
 
 ## Reproducing the results
 Download [the data](https://www.kaggle.com/datasets/rakannimer/air-passengers) and unzip the csv into [data](./data).
